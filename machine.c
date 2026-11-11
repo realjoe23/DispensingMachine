@@ -20,10 +20,10 @@ int main() {
                           {'i', "jarritos", 11}, {'j', "topochico", 30}};
 
   // Estados
-  int estado_actual = 0;    // 0 = q0, 1 = qpi,s, 2 = aceptacion, -1 = qerror
-  int saldo_acumulado = 0;  // s
-  int precio_objetivo = 0;  // precio(pi)
-  char producto_elegido[15] = "";  // pi
+  int estado_actual = 0;
+  int saldo_acumulado = 0;         // s
+  int precio_objetivo = 0;         // precio(x)
+  char producto_elegido[15] = "";  // x
   int total_productos = sizeof(machine) / sizeof(machine[0]);
 
   printf("\n-- MENU --\n");
@@ -34,20 +34,21 @@ int main() {
   printf("---------------------------------------\n");
 
   do {
-    // salidas MOORE
+    // salidas MOORE: lambda(q) depende solo del estado actual
     if (estado_actual == 0) {
+      // lambda(q0) = Esperar
       printf("\n[ESTADO q0]: Esperando seleccion.\n");
       printf("-> Seleccione un producto (a - j): ");
     } else if (estado_actual == 1) {
+      // lambda(q(x,s)) = Faltan(precio(x) - s)
       int faltante = precio_objetivo - saldo_acumulado;
-      printf("\n[ESTADO qpi,s]: Seleccion: %s | Saldo: $%i | Faltan: $%i\n",
+      printf("\n[ESTADO qx,s]: Seleccion: %s | Saldo: $%i | Faltan: $%i\n",
              producto_elegido, saldo_acumulado, faltante);
       printf("-> Ingrese moneda (1, 2, 5, 10): ");
     }
 
     char entrada[20];
     if (scanf("%19s", entrada) != 1) {
-      printf("Error.\n");
       break;
     }
 
@@ -78,26 +79,23 @@ int main() {
     // Funcion de transicion
     if (es_producto) {
       if (estado_actual == 0) {
-        // q0 -> qpi,0
         int indice = codigo_producto - 'a';
         strcpy(producto_elegido, machine[indice].product);
         precio_objetivo = machine[indice].price;
         estado_actual = 1;
       } else if (estado_actual == 1) {
-        // solo se permite una seleccion
-        printf("\nERROR:doble seleccion.\n");
+        // solo se permite una seleccion:
         estado_actual = -1;
       }
     } else if (es_moneda) {
       if (estado_actual == 0) {
-        // no se puede insertar dinero antes de seleccionar un producto
-        printf("\nERROR No se puede insertar dinero primero.\n");
+        // no se puede insertar dinero antes de seleccionar
         estado_actual = -1;
       } else if (estado_actual == 1) {
-        // qpi,s --> qpi,s+m
+        // q(x,s) --> q(x,s+m)
         saldo_acumulado += valor_moneda;
 
-        // aceptacion (s >= precio)
+        // aceptacion
         if (saldo_acumulado >= precio_objetivo) {
           estado_actual = 2;
         }
@@ -109,20 +107,26 @@ int main() {
 
   } while (estado_actual != -1 && estado_actual != 2);
 
-  // aceptacion o Rechazo
+  // salidas MOORE de los estados finales
   printf("\n=======================================\n");
   if (estado_actual == 2) {
     int cambio = saldo_acumulado - precio_objetivo;
     printf(":) Transaccion Exitosa! (Estado Final)\n");
     printf("Entregando producto: %s\n", producto_elegido);
     if (cambio > 0) {
-      // si el dinero es mayor da cambio"
+      // si el dinero es mayor da cambio
       printf("Su cambio es: $%i\n", cambio);
     }
   } else if (estado_actual == -1) {
+    // lambda(q(error,s)) = Devolver(s)
     printf(":( Operacion Cancelada (Estado error).\n");
     if (saldo_acumulado > 0) {
       printf(" Devolviendo dinero: $%i\n", saldo_acumulado);
+    }
+  } else {
+    printf(":( Cadena rechazada (Estado no aceptor).\n");
+    if (saldo_acumulado > 0) {
+      printf(" Saldo insuficiente. Devolviendo dinero: $%i\n", saldo_acumulado);
     }
   }
   printf("=======================================\n");
