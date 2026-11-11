@@ -4,7 +4,8 @@
 \usepackage{amsmath} 
 \usepackage{listings}
 \usepackage{color}
-\usetikzlibrary{automata, positioning} 
+\usepackage{float}
+\usetikzlibrary{automata, positioning, shapes.geometric}
 \usetikzlibrary{arrows.meta}
 
 \definecolor{codegreen}{rgb}{0,0.6,0}
@@ -42,67 +43,91 @@
     {\LARGE \textbf{Diseño de una Máquina Expendedora usando una MEF con arquitectura Moore}}\\[0.5cm]
     {\large Teoría de la Computación}\\[1cm]
     {\large \textbf{Alumno:} José Luis Chávez Gómez}\\[0.5cm]
-    {\large \textbf{Codigo:} 220419709}\\[0.5cm]
+    {\large \textbf{Código:} 220419709}\\[0.5cm]
     {\large 11 de noviembre del 2026}
     \vfill
 \end{titlepage}
 
 \section{Definición formal}
-{\large La máquina expendedora se define formalmente como el autómata:} 
-{\LARGE \[ M = (Q, \Sigma, \delta, q_0, F) \]} 
+{\large La máquina expendedora se define formalmente como una máquina de estados finitos con arquitectura Moore:} 
+{\LARGE \[ M = (Q, \Sigma, \Delta, \delta, \lambda, q_0, F) \]} 
 {\large donde:}
 
 \begin{itemize}
     \item \textbf{$Q$ (Conjunto de estados):} 
     \begin{itemize}
         \item $q_0$: Estado inicial.
-        \item $q_{x, s}$: Estados de acumulación de saldo ($x$ es el productoy $s$ es el dinero).
-        \item $q_{entrega}$: Estado de Aceptación.
-        \item $q_{error}$: Estado de error.
+        \item $q_{x, s}$: Estados de acumulación de saldo.
+        \item $q_{entrega, x, s}$: Estados de Aceptación.
+        \item $q_{error, s}$: Estados de error.
     \end{itemize}
     
-    \item \textbf{$\Sigma$ (Alfabeto):} Productos (a-j) y monedas. \\
+    \item \textbf{$\Sigma$ (Alfabeto de entrada):} \\
     \\ $\Sigma = \{a, b, c, d, e, f, g, h, i, j, 1, 2, 5, 10\}$.
+
+    \item \textbf{$P$ (Productos y precios):}
+    \begin{center}
+    \resizebox{0.95\textwidth}{!}{\begin{tabular}{|c|c|c|c|c|c|c|c|c|c|}
+    \hline
+    $a$ & $b$ & $c$ & $d$ & $e$ & $f$ & $g$ & $h$ & $i$ & $j$ \\ \hline
+    cocacola & fanta & sprite & squirt & sidral & pepsi & agua & sangria & jarritos & topochico \\ \hline
+    \$10 & \$8 & \$20 & \$4 & \$23 & \$17 & \$3 & \$28 & \$11 & \$30 \\ \hline
+    \end{tabular}}
+    \end{center}
+
+    \item \textbf{$\Delta$ (Alfabeto de salida):} $\Delta = \{Esperar,\ Faltan(f),\ Entregar(x, c),\ Devolver(s)\}$
     
     \item \textbf{$q_0$ (Estado inicial):} $q_0$
     
-    \item \textbf{$F$ (Estados de aceptación):} $F = \{ q_{x, s} \mid s \ge precio(x) \}$ 
+    \item \textbf{$F$ (Estados de aceptación):} $F = \{ q_{entrega, x, s} \mid s \ge precio(x) \}$ 
     
     \item \textbf{$\delta$ (Función de transición):} $Q \times \Sigma \to Q$:
     \begin{itemize}
         \item \textbf{Selección de producto:}  $\delta(q_0, x) = q_{x, 0}$ (Pasa a esperar dinero).
-        \item \textbf{Acumulación de monedas:} $\delta(q_{x, s}, m) = q_{x, s+m}$ (Suma el valor).
-        \item \textbf{Error de selección previa:} $\delta(q_0, m) = q_{error}$ (No se inserta dinero antes del producto).
-        \item \textbf{Error de selección doble:}  $\delta(q_{x, s}, y) = q_{error}$ (Solo un producto por transaccion).
+        \item \textbf{Acumulación de monedas:} $\delta(q_{x, s}, m) = q_{x, s+m}$ si $s+m < precio(x)$ (Suma el valor).
+        \item \textbf{Aceptación:} $\delta(q_{x, s}, m) = q_{entrega, x, s+m}$ si $s+m \ge precio(x)$.
+        \item \textbf{Error de selección previa:} $\delta(q_0, m) = q_{error, 0}$ (No se inserta dinero antes del producto).
+        \item \textbf{Error de selección doble:}  $\delta(q_{x, s}, y) = q_{error, s}$ (Solo un producto por transaccion).
+        \item \textbf{Estados finales:} $\delta(q_{entrega, x, s}, \sigma) = q_{entrega, x, s}$ y $\delta(q_{error, s}, \sigma) = q_{error, s}$ para todo $\sigma \in \Sigma$ (la transacción ya terminó).
+    \end{itemize}
+
+    \item \textbf{$\lambda$ (Función de salida de Moore):} $\lambda : Q \to \Delta$, la salida depende solo del estado:
+    \begin{itemize}
+        \item $\lambda(q_0) = Esperar$
+        \item $\lambda(q_{x, s}) = Faltan(precio(x) - s)$
+        \item $\lambda(q_{entrega, x, s}) = Entregar(x,\ s - precio(x))$
+        \item $\lambda(q_{error, s}) = Devolver(s)$
     \end{itemize}
 \end{itemize}
+
+Como $s < precio(x) \le 30$ en los estados de acumulación y la transacción termina al entregar o cancelar, el conjunto $Q$ es finito.
 
 \section{Diseño de estados}
 
 \begin{itemize}
     \item \textbf{Estado Inicial:}
     \begin{itemize}
-        \item $q_0$
+        \item $q_0$ \quad (salida: $Esperar$)
     \end{itemize}
     
     \item \textbf{Estados de Selección de Producto:}
     \begin{itemize}
-        \item $q_{x, 0}$
+        \item $q_{x, 0}$ \quad (salida: $Faltan(precio(x))$)
     \end{itemize}
 
     \item \textbf{Estados de Acumulación de Dinero:}
     \begin{itemize}
-        \item $q_{x, s}$
+        \item $q_{x, s}$ \quad (salida: $Faltan(precio(x) - s)$)
     \end{itemize}
 
-    \item \textbf{Estados de Aceptación (Entrega de producto):}
+    \item \textbf{Estados de Aceptación:}
     \begin{itemize}
-        \item $q_{entrega, x}$
+        \item $q_{entrega, x, s}$ \quad (salida: $Entregar(x,\ s - precio(x))$)
     \end{itemize}
 
     \item \textbf{Estado de Error:}
     \begin{itemize}
-        \item $q_{error}$: La máquina transita hacia aquí si se violan las reglas:
+        \item $q_{error, s}$ \quad (salida: $Devolver(s)$): La máquina transita hacia aquí si se violan las reglas:
         \begin{enumerate}
             \item Insertar monedas ($m$) estando en $q_0$.
             \item Seleccionar un segundo producto.
@@ -111,70 +136,70 @@
 \end{itemize}
 
 \section{Tabla de transiciones}
-$\delta: Q \times \Sigma \to Q$ 
+$\delta: Q \times \Sigma \to Q$ \quad y \quad $\lambda: Q \to \Delta$
 
 \begin{itemize}
-    \item $x$: producto seleccionado ($x \in \{a,b,c,d,e,f,g,h,i,j\}$).
-    \item $y$: Cualquier otro producto.
-    \item $m$: Cualquier moneda valida (1, 2, 5, 10).
+    \item $p$: Cualquier producto ($p \in \{a,b,c,d,e,f,g,h,i,j\}$); $x$ es el producto ya seleccionado.
+    \item $m$: Cualquier moneda (1, 2, 5, 10).
     \item $s$: Saldo actual.
 \end{itemize}
 
-\begin{table}[h!]
+\begin{table}[H]
 \centering
-\resizebox{\textwidth}{!}{
-\begin{tabular}{|c|c|c|c|c|c|c|c|}
+\renewcommand{\arraystretch}{1.6}
+\resizebox{\textwidth}{!}{\begin{tabular}{|c|c|c|c|c|c|c|}
 \hline
-\textbf{$Q$} & \textbf{I ($x$)} & \textbf{I 1} & \textbf{I 2} & \textbf{I 5} & \textbf{I 10} & \textbf{($y$)} \\ \hline
-$\rightarrow q_0$ & $q_{x, 0}$ & $q_{error}$ & $q_{error}$ & $q_{error}$ & $q_{error}$ & $q_{error}$ \\ \hline
-$q_{x, s}$ & $q_{error}$ & $q_{x, s+1}$ & $q_{x, s+2}$ & $q_{x, s+5}$ & $q_{x, s+10}$ & $q_{error}$ \\ \hline
-$q_{error}$ & $q_{error}$ & $q_{error}$ & $q_{error}$ & $q_{error}$ & $q_{error}$ & $q_{error}$ \\ \hline
-\end{tabular}
-}
-\caption{El estado de aceptación $F$ se alcanza cuando $s \ge precio(x)$.}
+\textbf{$Q$} & \textbf{$p$} & \textbf{1} & \textbf{2} & \textbf{5} & \textbf{10} & \textbf{$\lambda(q)$} \\ \hline
+$\rightarrow q_0$ & $q_{p, 0}$ & $q_{error, 0}$ & $q_{error, 0}$ & $q_{error, 0}$ & $q_{error, 0}$ & $Esperar$ \\ \hline
+$q_{x, s}$ & $q_{error, s}$ & $q_{x, s+1}^{\dagger}$ & $q_{x, s+2}^{\dagger}$ & $q_{x, s+5}^{\dagger}$ & $q_{x, s+10}^{\dagger}$ & $Faltan(precio(x)-s)$ \\ \hline
+$*\,q_{entrega, x, s}$ & $q_{entrega, x, s}$ & $q_{entrega, x, s}$ & $q_{entrega, x, s}$ & $q_{entrega, x, s}$ & $q_{entrega, x, s}$ & $Entregar(x, s-precio(x))$ \\ \hline
+$q_{error, s}$ & $q_{error, s}$ & $q_{error, s}$ & $q_{error, s}$ & $q_{error, s}$ & $q_{error, s}$ & $Devolver(s)$ \\ \hline
+\end{tabular}}
+\caption{El estado de aceptación $F$ ($*$) se alcanza cuando $s \ge precio(x)$.}
 \end{table}
 
 \textbf{\\[0.25cm]Transiciones:}
 \begin{itemize}
     \item \textbf{Validas:} Desde el estado inicial $q_0$, únicamente se acepta una letra ($a-j$).
     \\ Una vez en el estado de acumulación $q_{x, s}$, solo se aceptan números.
-    \item \textbf{Invalidas:} Si en $q_0$ se ingresa un número, se transita a $q_{error}$\\ Si durante $q_{x, s}$ se intenta seleccionar otra letra, se transita a $q_{error}$.
+    \item \textbf{Invalidas:} Si en $q_0$ se ingresa un número, se transita a $q_{error, 0}$\\ Si durante $q_{x, s}$ se intenta seleccionar otra letra, se transita a $q_{error, s}$.
 \end{itemize}
 
 \section{Diagrama de estados}
 
 \vspace{0.5cm}
 \begin{center}
-\begin{tikzpicture}[shorten >=1pt, node distance=2.5cm, on grid, >={Stealth[round]}, auto, every state/.style={minimum size=1.2cm}]
+\resizebox{\textwidth}{!}{
+\begin{tikzpicture}[shorten >=1pt, >={Stealth[round]}, auto, every state/.style={ellipse, minimum width=2.7cm, minimum height=1.4cm, align=center, inner sep=1pt}, every edge/.style={draw, font=\scriptsize}]
 
-  \node[state, initial, initial text=Inicio] (q0) {$q_0$};
-  \node[state, right=of q0] (qp0) {$q_{x, 0}$};
-  \node[state, right=of qp0] (qp1) {$q_{x, 1}$};
-  \node[state, right=of qp1] (qp2) {$q_{x, 2}$};
-  \node[state, draw=none, right=of qp2] (dots) {$\dots$};
-  \node[state, accepting, right=of dots] (qpf) {$q_{entrega,x}$};
-
-  \node[state, below=2.5cm of qp1] (qerr) {$q_{error}$};
+  \node[state, initial, initial text=Inicio] (q0) at (0,0) {$q_0$ \\ {\scriptsize $Esperar$}};
+  \node[state] (qp0) at (4.6,0) {$q_{x, 0}$ \\ {\scriptsize $Faltan(P)$}};
+  \node[state] (qp1) at (9.2,0) {$q_{x, s}$ \\ {\scriptsize $Faltan(P-s)$}};
+  \node[state] (qerr) at (4.6,-4) {$q_{error,s}$ \\ {\scriptsize $Devolver(s)$}};
+  \node[state, accepting] (qpf) at (9.2,-4) {$q_{entrega,x,s}$ \\ {\scriptsize $Entregar(x, s-P)$}};
 
   \path[->]
 
     (q0) edge node[above] {$a-j$} (qp0)
-    
-    (qp0) edge node[above] {1} (qp1)
-    (qp1) edge node[above] {1} (qp2)
-    (qp2) edge node[above] {1, 2, 5, 10} (dots)
-    (dots) edge node[above] {1, 2, 5, 10} (qpf)
 
-    (qp0) edge[bend left=45] node[above] {2} (qp2)
+    (qp0) edge node[above] {$m,\ m<P$} (qp1)
+    (qp1) edge[loop above] node[above] {$m,\ s+m<P$} (qp1)
+    (qp1) edge node[right, pos=0.4] {$m,\ s+m \ge P$} (qpf)
+
+    (qp0) edge node[below, sloped, pos=0.78] {$m,\ m \ge P$} (qpf)
 
     (q0) edge[bend right=20] node[below left] {1, 2, 5, 10} (qerr)
-    (qp0) edge node[right] {$y$} (qerr)
-    (qp1) edge node[left] {$y$} (qerr)
-    (qp2) edge node[right] {$y$} (qerr)
+    (qp0) edge node[left] {$a-j$} (qerr)
+    (qp1) edge node[above, sloped, pos=0.25] {$a-j$} (qerr)
 
-    (qerr) edge[loop below] node {$\Sigma$} (qerr);
+    (qerr) edge[loop below] node {$\Sigma$} (qerr)
+    (qpf) edge[loop below] node {$\Sigma$} (qpf);
 
 \end{tikzpicture}
+}
+
+\vspace{0.3cm}
+{\small donde $P = precio(x)$, $m \in \{1, 2, 5, 10\}$ y $a-j$ es cualquier producto.}
 \end{center}
 
 \section{Validación de cadenas}
@@ -183,23 +208,23 @@ $q_{error}$ & $q_{error}$ & $q_{error}$ & $q_{error}$ & $q_{error}$ & $q_{error}
 \begin{enumerate}
     \item \textbf{Cadena:} \texttt{g, 1, 2} (agua: \$3)
     \begin{itemize}
-        \item \textbf{Camino:} $q_0 \xrightarrow{g} q_{agua, 0} \xrightarrow{1} q_{agua, 1} \xrightarrow{2} q_{agua, 3}$
+        \item \textbf{Camino:} $q_0 \xrightarrow{g} q_{agua, 0} \xrightarrow{1} q_{agua, 1} \xrightarrow{2} q_{entrega, agua, 3}$
     \end{itemize}
     \item \textbf{Cadena:} \texttt{a, 5, 5} (cocacola: \$10)
     \begin{itemize}
-        \item \textbf{Camino:} $q_0 \xrightarrow{a} q_{cocacola, 0} \xrightarrow{5} q_{cocacola, 5} \xrightarrow{5} q_{cocacola, 10}$
+        \item \textbf{Camino:} $q_0 \xrightarrow{a} q_{cocacola, 0} \xrightarrow{5} q_{cocacola, 5} \xrightarrow{5} q_{entrega, cocacola, 10}$
     \end{itemize}
-    \item \textbf{Cadena:} \texttt{c, 10, 10, 5} (sprite: \$20)
+    \item \textbf{Cadena:} \texttt{c, 10, 5, 10} (sprite: \$20)
     \begin{itemize}
-        \item \textbf{Camino:} $q_0 \xrightarrow{c} q_{sprite, 0} \xrightarrow{10} q_{sprite, 10} \xrightarrow{10} q_{sprite, 20} \xrightarrow{5} q_{sprite, 25}$
+        \item \textbf{Camino:} $q_0 \xrightarrow{c} q_{sprite, 0} \xrightarrow{10} q_{sprite, 10} \xrightarrow{5} q_{sprite, 15} \xrightarrow{10} q_{entrega, sprite, 25}$
     \end{itemize}
     \item \textbf{Cadena:} \texttt{j, 10, 10, 10} (topochico: \$30)
     \begin{itemize}
-        \item \textbf{Camino:} $q_0 \xrightarrow{j} q_{topochico, 0} \xrightarrow{10} q_{topochico, 10} \xrightarrow{10} q_{topochico, 20} \xrightarrow{10} q_{topochico, 30}$
+        \item \textbf{Camino:} $q_0 \xrightarrow{j} q_{topochico, 0} \xrightarrow{10} q_{topochico, 10} \xrightarrow{10} q_{topochico, 20} \xrightarrow{10} q_{entrega, topochico, 30}$
     \end{itemize}
     \item \textbf{Cadena:} \texttt{d, 5} (squirt: \$4)
     \begin{itemize}
-        \item \textbf{Camino:} $q_0 \xrightarrow{d} q_{squirt, 0} \xrightarrow{5} q_{squirt, 5}$
+        \item \textbf{Camino:} $q_0 \xrightarrow{d} q_{squirt, 0} \xrightarrow{5} q_{entrega, squirt, 5}$
     \end{itemize}
 \end{enumerate}
 
@@ -207,11 +232,11 @@ $q_{error}$ & $q_{error}$ & $q_{error}$ & $q_{error}$ & $q_{error}$ & $q_{error}
 \begin{enumerate}
     \item \textbf{Cadena:} \texttt{1, 2, a}
     \begin{itemize}
-        \item \textbf{Camino:} $q_0 \xrightarrow{1} q_{error} \xrightarrow{2} q_{error} \xrightarrow{a} q_{error}$
+        \item \textbf{Camino:} $q_0 \xrightarrow{1} q_{error, 0} \xrightarrow{2} q_{error, 0} \xrightarrow{a} q_{error, 0}$
     \end{itemize}
     \item \textbf{Cadena:} \texttt{b, c, 10}
     \begin{itemize}
-        \item \textbf{Camino:} $q_0 \xrightarrow{b} q_{fanta, 0} \xrightarrow{c} q_{error} \xrightarrow{10} q_{error}$
+        \item \textbf{Camino:} $q_0 \xrightarrow{b} q_{fanta, 0} \xrightarrow{c} q_{error, 0} \xrightarrow{10} q_{error, 0}$
     \end{itemize}
     \item \textbf{Cadena:} \texttt{f, 10, 5} (pepsi: \$17)
     \begin{itemize}
@@ -219,7 +244,7 @@ $q_{error}$ & $q_{error}$ & $q_{error}$ & $q_{error}$ & $q_{error}$ & $q_{error}
     \end{itemize}
     \item \textbf{Cadena:} \texttt{g, g}
     \begin{itemize}
-        \item \textbf{Camino:} $q_0 \xrightarrow{g} q_{agua, 0} \xrightarrow{g} q_{error}$
+        \item \textbf{Camino:} $q_0 \xrightarrow{g} q_{agua, 0} \xrightarrow{g} q_{error, 0}$
     \end{itemize}
     \item \textbf{Cadena:} \texttt{h, 10, 10, 5, 1, 1} (sangria: \$28)
     \begin{itemize}
@@ -228,11 +253,11 @@ $q_{error}$ & $q_{error}$ & $q_{error}$ & $q_{error}$ & $q_{error}$ & $q_{error}
 \end{enumerate}
 
 \section{Implementación}
-El modelo matemático se implementó en C 
+El modelo matemático se implementó en C. Las salidas de Moore $\lambda(q)$ se imprimen según el estado actual.
 \lstinputlisting[language=C, caption={Código fuente en C de la Máquina Expendedora}]{machine.c}
 
 \section{Conclusión}
-Esta actividad me permitio aplicar los conocimientos acerca de maquinas de estado, sus transiciones y estados, automatas, tablas de transicion, diagrama de estados, y arquitectura moore. Si soy honesto, se me dificulta comprender e intrepretar la definicion matematica, sin embargo el ejemplo que hice sobre una maquina dispensadora de productos, me dejo entender mas, por lo que considero satisfactorio el resultado obtenido.
+Esta actividad me permitió aplicar los conocimientos acerca de máquinas de estado, sus transiciones y estados, autómatas, tablas de transición, diagrama de estados y arquitectura Moore. Entendí que en una máquina de Moore la salida depende únicamente del estado, por lo que definí una función de salida $\lambda$ para cada estado y moví los mensajes de la máquina a esas salidas. Si soy honesto, se me dificulta comprender e interpretar la definición matemática, sin embargo el ejemplo que hice sobre una máquina expendedora de productos me ayudó a entenderla mejor, sobre todo al ver cómo el saldo forma parte del estado. Por esto considero satisfactorio el resultado obtenido.
 
 \section{Referencias bibliográficas}
 Gómez Andrade, A. (2018). \textit{Teoría de la Computación: Máquinas abstractas y modelos matemáticos.} Universidad de Guadalajara.
